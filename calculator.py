@@ -4,7 +4,7 @@ from tkinter import ttk, messagebox
 import requests
 
 FIAT_URL = "https://open.er-api.com/v6/latest/USD"
-CRYPTO_URL = "https://min-api.cryptocompare.com/data/pricemulti"
+CRYPTO_URL = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd"
 
 # Запасные курсы (рублей за 1 единицу валюты)
 FALLBACK_RATES = {
@@ -18,34 +18,31 @@ CURRENCIES = list(FALLBACK_RATES)
 
 
 def get_rates():
-    """Загружает курсы: обычные валюты и крипту. При ошибке возвращает запасные"""
+    """Загружает курсы. Валюты и крипта грузятся отдельно, ошибки печатаются в терминал"""
+    rates = dict(FALLBACK_RATES)
+
     try:
-        # Обычные валюты: сколько единиц валюты в 1 USD
-        response = requests.get(FIAT_URL, timeout=5)
-        response.raise_for_status()
-        fiat = response.json()["rates"]
+        fiat = requests.get(FIAT_URL, timeout=5).json()["rates"]
+        rates["USD"] = fiat["RUB"]
+        rates["EUR"] = fiat["RUB"] / fiat["EUR"]
+    except Exception as error:
+        print("Ошибка загрузки валют:", repr(error))
+        messagebox.showwarning("Внимание", "Не удалось загрузить курсы валют.\nИспользуются запасные значения.")
+        return rates
 
-        # Крипта: цена BTC и ETH в долларах
-        response = requests.get(
-            CRYPTO_URL, params={"fsyms": "BTC,ETH", "tsyms": "USD"}, timeout=5
-        )
-        response.raise_for_status()
+    response = None
+    try:
+        response = requests.get(CRYPTO_URL, timeout=5)
         crypto = response.json()
+        rates["BTC"] = crypto["bitcoin"]["usd"] * rates["USD"]
+        rates["ETH"] = crypto["ethereum"]["usd"] * rates["USD"]
+    except Exception as error:
+        print("Ошибка загрузки крипты:", repr(error))
+        if response is not None:
+            print("Ответ сайта:", response.text[:300])
+        messagebox.showwarning("Внимание", "Не удалось загрузить курсы BTC и ETH.\nДля них используются запасные значения.")
 
-        usd_rub = fiat["RUB"]
-        return {
-            "RUB": 1.0,
-            "USD": usd_rub,
-            "EUR": usd_rub / fiat["EUR"],
-            "BTC": crypto["BTC"]["USD"] * usd_rub,
-            "ETH": crypto["ETH"]["USD"] * usd_rub,
-        }
-    except (requests.RequestException, KeyError, ValueError):
-        messagebox.showwarning(
-            "Внимание",
-            "Не удалось загрузить курсы.\nИспользуются запасные значения.",
-        )
-        return dict(FALLBACK_RATES)
+    return rates
 
 
 def convert():
