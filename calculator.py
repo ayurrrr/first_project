@@ -149,4 +149,8 @@ label_status = ttk.Label(root, text="", font=("Arial", 8), foreground="gray")
 label_status.pack(side="bottom", pady=10)
 show_status(rates_ok)
 
+# Enter в любом месте окна запускает расчёт
+root.bind("<Return>", lambda event: convert())
+entry_amount.focus()
+
 root.mainloop()
