@@ -75,6 +75,14 @@ def convert():
         label_result.config(text=f"Результат: {result:.2f} {to_cur}")
 
 
+def swap():
+    """Меняет валюты местами и сразу пересчитывает"""
+    from_cur = combo_from.get()
+    combo_from.set(combo_to.get())
+    combo_to.set(from_cur)
+    convert()
+
+
 # Сначала создаём окно: messagebox внутри get_rates требует существующий root
 root = tk.Tk()
 root.title("Crypto & Fiat Converter")
@@ -102,8 +110,8 @@ combo_from = ttk.Combobox(frame, values=CURRENCIES, width=6, font=("Arial", 11),
 combo_from.grid(row=1, column=1, padx=5, pady=5)
 combo_from.set("USD")
 
-label_arrow = ttk.Label(frame, text="→", font=("Arial", 14))
-label_arrow.grid(row=1, column=2, padx=5)
+btn_swap = ttk.Button(frame, text="⇄", width=3, command=swap)
+btn_swap.grid(row=1, column=2, padx=5)
 
 ttk.Label(frame, text="В:", font=("Arial", 10)).grid(row=0, column=3, sticky="w", padx=5)
 combo_to = ttk.Combobox(frame, values=CURRENCIES, width=6, font=("Arial", 11), state="readonly")
