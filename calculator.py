@@ -1,5 +1,6 @@
 import math
 import tkinter as tk
+from datetime import datetime
 from tkinter import ttk, messagebox
 import requests
 
@@ -18,8 +19,9 @@ CURRENCIES = list(FALLBACK_RATES)
 
 
 def get_rates():
-    """Загружает курсы. Валюты и крипта грузятся отдельно, ошибки печатаются в терминал"""
+    """Загружает курсы. Возвращает (курсы, ok): ok = True, если загрузилось всё"""
     rates = dict(FALLBACK_RATES)
+    ok = True
 
     try:
         fiat = requests.get(FIAT_URL, timeout=5).json()["rates"]
@@ -28,7 +30,7 @@ def get_rates():
     except Exception as error:
         print("Ошибка загрузки валют:", repr(error))
         messagebox.showwarning("Внимание", "Не удалось загрузить курсы валют.\nИспользуются запасные значения.")
-        return rates
+        return rates, False
 
     response = None
     try:
@@ -41,8 +43,24 @@ def get_rates():
         if response is not None:
             print("Ответ сайта:", response.text[:300])
         messagebox.showwarning("Внимание", "Не удалось загрузить курсы BTC и ETH.\nДля них используются запасные значения.")
+        ok = False
 
-    return rates
+    return rates, ok
+
+
+def show_status(ok):
+    """Показывает внизу окна, откуда сейчас курсы"""
+    if ok:
+        label_status.config(text=f"Курсы обновлены в {datetime.now():%H:%M:%S}")
+    else:
+        label_status.config(text="Используются запасные курсы (устарели)")
+
+
+def refresh():
+    """Загружает курсы заново по кнопке"""
+    global rates
+    rates, ok = get_rates()
+    show_status(ok)
 
 
 def convert():
@@ -86,10 +104,10 @@ def swap():
 # Сначала создаём окно: messagebox внутри get_rates требует существующий root
 root = tk.Tk()
 root.title("Crypto & Fiat Converter")
-root.geometry("400x320")
+root.geometry("400x380")
 root.resizable(False, False)
 
-rates = get_rates()
+rates, rates_ok = get_rates()
 
 style = ttk.Style()
 style.theme_use("clam")
@@ -119,9 +137,16 @@ combo_to.grid(row=1, column=3, padx=5, pady=5)
 combo_to.set("RUB")
 
 btn_convert = ttk.Button(root, text="Рассчитать конвертацию", command=convert)
-btn_convert.pack(pady=20)
+btn_convert.pack(pady=15)
 
 label_result = ttk.Label(root, text="Результат: ", font=("Arial", 13, "bold"), foreground="#107c10")
-label_result.pack(pady=10)
+label_result.pack(pady=5)
+
+btn_refresh = ttk.Button(root, text="Обновить курсы", command=refresh)
+btn_refresh.pack(pady=10)
+
+label_status = ttk.Label(root, text="", font=("Arial", 8), foreground="gray")
+label_status.pack(side="bottom", pady=10)
+show_status(rates_ok)
 
 root.mainloop()
