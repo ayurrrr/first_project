@@ -17,6 +17,10 @@ FALLBACK_RATES = {
 }
 CURRENCIES = list(FALLBACK_RATES)
 
+# История операций: самые новые сверху, хранится, пока открыта программа
+history = []
+MAX_HISTORY = 10
+
 
 def get_rates():
     """Загружает курсы. Возвращает (курсы, ok): ok = True, если загрузилось всё"""
@@ -63,6 +67,24 @@ def refresh():
     show_status(ok)
 
 
+def format_money(value, currency):
+    """Для крипты 6 знаков после запятой, для остальных 2"""
+    if currency in ("BTC", "ETH"):
+        return f"{value:.6f} {currency}"
+    return f"{value:.2f} {currency}"
+
+
+def add_to_history(amount, from_cur, result, to_cur):
+    """Добавляет запись в начало списка и обновляет список в окне"""
+    line = f"{datetime.now():%H:%M}  {format_money(amount, from_cur)} → {format_money(result, to_cur)}"
+    history.insert(0, line)
+    del history[MAX_HISTORY:]  # оставляем только последние записи
+
+    listbox_history.delete(0, tk.END)
+    for item in history:
+        listbox_history.insert(tk.END, item)
+
+
 def convert():
     """Конвертация по текущим курсам"""
     # Разрешаем запятую: 100,5 -> 100.5
@@ -87,10 +109,8 @@ def convert():
 
     result = amount * rates[from_cur] / rates[to_cur]
 
-    if to_cur in ("BTC", "ETH"):
-        label_result.config(text=f"Результат: {result:.6f} {to_cur}")
-    else:
-        label_result.config(text=f"Результат: {result:.2f} {to_cur}")
+    label_result.config(text=f"Результат: {format_money(result, to_cur)}")
+    add_to_history(amount, from_cur, result, to_cur)
 
 
 def swap():
@@ -104,7 +124,7 @@ def swap():
 # Сначала создаём окно: messagebox внутри get_rates требует существующий root
 root = tk.Tk()
 root.title("Crypto & Fiat Converter")
-root.geometry("400x380")
+root.geometry("420x560")
 root.resizable(False, False)
 
 rates, rates_ok = get_rates()
@@ -141,6 +161,10 @@ btn_convert.pack(pady=15)
 
 label_result = ttk.Label(root, text="Результат: ", font=("Arial", 13, "bold"), foreground="#107c10")
 label_result.pack(pady=5)
+
+ttk.Label(root, text="История операций:", font=("Arial", 10)).pack(pady=(10, 0))
+listbox_history = tk.Listbox(root, width=48, height=10, font=("Arial", 9))
+listbox_history.pack(pady=5)
 
 btn_refresh = ttk.Button(root, text="Обновить курсы", command=refresh)
 btn_refresh.pack(pady=10)
