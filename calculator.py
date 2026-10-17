@@ -21,6 +21,15 @@ CURRENCIES = list(FALLBACK_RATES)
 history = []
 MAX_HISTORY = 10
 
+# Цвета тем: фон окна, текст, поля ввода, кнопки, результат, подпись внизу
+THEMES = {
+    "light": {"bg": "#f0f0f0", "fg": "#000000", "field": "#ffffff",
+              "button": "#e1e1e1", "result": "#107c10", "hint": "gray"},
+    "dark": {"bg": "#2b2b2b", "fg": "#f0f0f0", "field": "#3c3c3c",
+             "button": "#454545", "result": "#4ec94e", "hint": "#aaaaaa"},
+}
+current_theme = "light"
+
 
 def get_rates():
     """Загружает курсы. Возвращает (курсы, ok): ok = True, если загрузилось всё"""
@@ -121,10 +130,39 @@ def swap():
     convert()
 
 
+def apply_theme(name):
+    """Перекрашивает всё окно в выбранную тему"""
+    colors = THEMES[name]
+
+    root.configure(bg=colors["bg"])
+    style.configure("TFrame", background=colors["bg"])
+    style.configure("TLabel", background=colors["bg"], foreground=colors["fg"])
+    style.configure("TButton", background=colors["button"], foreground=colors["fg"])
+    style.map("TButton", background=[("active", colors["field"])])
+    style.configure("TEntry", fieldbackground=colors["field"], foreground=colors["fg"])
+    style.configure("TCombobox", background=colors["button"], foreground=colors["fg"])
+    style.map("TCombobox", fieldbackground=[("readonly", colors["field"])])
+
+    # Обычный tk.Listbox не подчиняется ttk-стилям, красим его отдельно
+    listbox_history.config(bg=colors["field"], fg=colors["fg"])
+
+    # У этих двух надписей цвет задан отдельно, поэтому меняем его вручную
+    label_result.config(foreground=colors["result"])
+    label_status.config(foreground=colors["hint"])
+
+
+def toggle_theme():
+    """Переключает светлую и тёмную тему"""
+    global current_theme
+    current_theme = "dark" if current_theme == "light" else "light"
+    apply_theme(current_theme)
+    btn_theme.config(text="Светлая тема" if current_theme == "dark" else "Тёмная тема")
+
+
 # Сначала создаём окно: messagebox внутри get_rates требует существующий root
 root = tk.Tk()
 root.title("Crypto & Fiat Converter")
-root.geometry("420x560")
+root.geometry("420x600")
 root.resizable(False, False)
 
 rates, rates_ok = get_rates()
@@ -167,7 +205,10 @@ listbox_history = tk.Listbox(root, width=48, height=10, font=("Arial", 9))
 listbox_history.pack(pady=5)
 
 btn_refresh = ttk.Button(root, text="Обновить курсы", command=refresh)
-btn_refresh.pack(pady=10)
+btn_refresh.pack(pady=5)
+
+btn_theme = ttk.Button(root, text="Тёмная тема", command=toggle_theme)
+btn_theme.pack(pady=5)
 
 label_status = ttk.Label(root, text="", font=("Arial", 8), foreground="gray")
 label_status.pack(side="bottom", pady=10)
