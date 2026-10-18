@@ -1,6 +1,8 @@
 """Виртуальный портфель: рубли и купленные активы."""
+import json
 import math
 from datetime import datetime
+from pathlib import Path
 
 START_BALANCE = 100_000.0
 EPS = 1e-9  # допуск на ошибки округления дробных чисел
@@ -73,3 +75,36 @@ class Portfolio:
             "price": price,
             "total": total,  # сколько рублей потрачено (buy) или получено (sell), с комиссией
         })
+
+    # --- Сохранение и загрузка ---
+
+    def to_dict(self):
+        return {
+            "start_balance": self.start_balance,
+            "cash": self.cash,
+            "commission": self.commission,
+            "holdings": self.holdings,
+            "trades": self.trades,
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        portfolio = cls(cash=data["start_balance"], commission=data["commission"])
+        portfolio.cash = data["cash"]
+        portfolio.holdings = dict(data["holdings"])
+        portfolio.trades = list(data["trades"])
+        return portfolio
+
+    def save(self, path):
+        Path(path).write_text(
+            json.dumps(self.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    @classmethod
+    def load(cls, path):
+        """Читает портфель из файла. Если файла нет, создаёт новый со стартовыми 100 000 ₽.
+        Если файл повреждён, бросает ValueError, KeyError или TypeError."""
+        path = Path(path)
+        if not path.exists():
+            return cls()
+        return cls.from_dict(json.loads(path.read_text(encoding="utf-8")))
