@@ -1,9 +1,14 @@
 import tkinter as tk
 from datetime import datetime
-from tkinter import ttk
+from pathlib import Path
+from tkinter import ttk, messagebox
 
 from converter_tab import ConverterTab
+from game_tab import GameTab
+from portfolio import Portfolio
 from rates import FALLBACK_RATES, get_rates
+
+SAVE_FILE = Path(__file__).with_name("portfolio.json")
 
 # Цвета тем: фон окна, текст, поля ввода, кнопки, результат, подписи
 THEMES = {
@@ -14,6 +19,15 @@ THEMES = {
 }
 
 
+def load_portfolio():
+    """Загружает сохранённый портфель. Если файл повреждён, начинает заново"""
+    try:
+        return Portfolio.load(SAVE_FILE)
+    except (OSError, ValueError, KeyError, TypeError):
+        messagebox.showwarning("Внимание", "Файл портфеля повреждён. Начинаем с чистого листа.")
+        return Portfolio()
+
+
 class App:
     """Главное окно: вкладки, общие курсы, обновление и тема"""
 
@@ -21,6 +35,7 @@ class App:
         self.root = root
         self.rates = dict(FALLBACK_RATES)
         self.theme = "light"
+        self.portfolio = load_portfolio()
 
         root.title("Конвертер и торговый симулятор")
         root.geometry("480x660")
@@ -33,10 +48,12 @@ class App:
         self.notebook.pack(fill="both", expand=True, padx=10, pady=(10, 0))
 
         self.converter = ConverterTab(self.notebook)
+        self.game = GameTab(self.notebook, self.portfolio)
         self.notebook.add(self.converter, text="Конвертер")
+        self.notebook.add(self.game, text="Симулятор")
 
         # Список вкладок: у каждой есть set_rates, on_enter и apply_colors
-        self.tabs = [self.converter]
+        self.tabs = [self.converter, self.game]
 
         # Нижняя панель: общие для всех вкладок кнопки и статус
         bottom = ttk.Frame(root)
@@ -96,6 +113,10 @@ class App:
         self.style.configure("TNotebook", background=colors["bg"])
         self.style.configure("TNotebook.Tab", background=colors["button"], foreground=colors["fg"])
         self.style.map("TNotebook.Tab", background=[("selected", colors["field"])])
+        # Таблица на вкладке симулятора
+        self.style.configure("Treeview", background=colors["field"],
+                             fieldbackground=colors["field"], foreground=colors["fg"])
+        self.style.configure("Treeview.Heading", background=colors["button"], foreground=colors["fg"])
 
         self.label_status.config(foreground=colors["hint"])
         for tab in self.tabs:
