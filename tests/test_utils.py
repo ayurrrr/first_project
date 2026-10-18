@@ -4,7 +4,8 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from utils import format_amount, format_rub, parse_amount  # noqa: E402
+from utils import (format_amount, format_rub, parse_amount,  # noqa: E402
+                   parse_start_amount, plain_number)
 
 
 @pytest.mark.parametrize(
@@ -33,3 +34,25 @@ def test_format_rub():
     assert format_rub(0) == "0.00 ₽"
     assert format_rub(-1500) == "-1 500.00 ₽"
     assert format_rub(1234567.891) == "1 234 567.89 ₽"
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [("100000", 100000.0), ("2500,5", 2500.5), (" 1 ", 1.0), ("1000000000000", 1e12)],
+)
+def test_parse_start_amount_ok(text, expected):
+    assert parse_start_amount(text) == expected
+
+
+@pytest.mark.parametrize("text", ["0", "-100", "abc", "", "nan", "inf", "1000000000001", "1e20"])
+def test_parse_start_amount_bad(text):
+    with pytest.raises(ValueError):
+        parse_start_amount(text)
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [(100000.0, "100000"), (2500.5, "2500.5"), (0.0, "0"), (1e12, "1000000000000"), (0.25, "0.25")],
+)
+def test_plain_number(value, expected):
+    assert plain_number(value) == expected

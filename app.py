@@ -48,7 +48,7 @@ class App:
         self.notebook.pack(fill="both", expand=True, padx=10, pady=(10, 0))
 
         self.converter = ConverterTab(self.notebook)
-        self.game = GameTab(self.notebook, self.portfolio)
+        self.game = GameTab(self.notebook, self.portfolio, SAVE_FILE)
         self.notebook.add(self.converter, text="Конвертер")
         self.notebook.add(self.game, text="Симулятор")
 

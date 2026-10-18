@@ -139,3 +139,11 @@ def test_load_wrong_structure_raises(tmp_path):
     path.write_text("[1, 2, 3]", encoding="utf-8")  # корректный JSON, но не портфель
     with pytest.raises((KeyError, TypeError)):
         Portfolio.load(path)
+
+
+def test_custom_start_balance():
+    p = Portfolio(cash=2500)
+    assert p.cash == 2500 and p.start_balance == 2500
+    p.buy("USD", 10, 100.0)  # потратили 1000
+    assert p.profit(RATES) == pytest.approx(0)
+    assert p.profit(dict(RATES, USD=110.0)) == pytest.approx(100)
