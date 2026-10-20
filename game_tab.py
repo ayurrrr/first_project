@@ -57,6 +57,22 @@ class GameTab(ttk.Frame):
         ttk.Button(buttons, text="Продать", command=self.sell).grid(row=0, column=1, padx=5)
         ttk.Button(buttons, text="Продать всё", command=self.sell_all).grid(row=0, column=2, padx=5)
 
+        # История сделок: новые сверху
+        ttk.Label(self, text="История сделок", font=("Arial", 10, "bold")).pack(pady=(10, 2))
+        history_frame = ttk.Frame(self)
+        history_frame.pack(padx=10)
+        self.history = ttk.Treeview(history_frame, columns=("time", "side", "asset", "qty", "total"),
+                                    show="headings", height=5)
+        for column, title, width in (("time", "Время", 120), ("side", "Сделка", 80),
+                                     ("asset", "Актив", 60), ("qty", "Количество", 100),
+                                     ("total", "Сумма", 110)):
+            self.history.heading(column, text=title)
+            self.history.column(column, width=width, anchor="center")
+        scroll = ttk.Scrollbar(history_frame, orient="vertical", command=self.history.yview)
+        self.history.configure(yscrollcommand=scroll.set)
+        self.history.pack(side="left")
+        scroll.pack(side="left", fill="y")
+
         # Выбор стартовой суммы и новая игра
         start_frame = ttk.Frame(self)
         start_frame.pack(pady=10)
@@ -177,6 +193,20 @@ class GameTab(ttk.Frame):
                 format_amount(qty, asset),
                 format_rub(self.rates[asset]),
                 format_rub(qty * self.rates[asset]),
+            ))
+
+        self.update_history()
+
+    def update_history(self):
+        """Заполняет таблицу сделок: самые новые сверху"""
+        self.history.delete(*self.history.get_children())
+        for trade in reversed(self.portfolio.trades):
+            when = trade["time"][5:16].replace("T", " ")  # "10-21 01:45"
+            side = "Покупка" if trade["side"] == "buy" else "Продажа"
+            self.history.insert("", tk.END, values=(
+                when, side, trade["asset"],
+                format_amount(trade["amount"], trade["asset"]),
+                format_rub(trade["total"]),
             ))
 
     def apply_colors(self, colors):
