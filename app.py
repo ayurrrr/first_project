@@ -35,10 +35,11 @@ class App:
         self.root = root
         self.rates = dict(FALLBACK_RATES)
         self.theme = "light"
+        self.got_real_rates = False  # были ли уже настоящие курсы из интернета
         self.portfolio = load_portfolio()
 
         root.title("Конвертер и торговый симулятор")
-        root.geometry("480x660")
+        root.geometry("480x780")
         root.resizable(False, False)
         self.style = ttk.Style()
         self.style.theme_use("clam")
@@ -70,7 +71,7 @@ class App:
         self.apply_theme(self.theme)
         self.set_rates(self.rates)
         # Курсы грузим после показа окна, чтобы оно открылось сразу
-        root.after(100, self.refresh_rates)
+        root.after(100, self.auto_refresh)
 
     def set_rates(self, rates):
         """Раздаёт курсы всем вкладкам"""
@@ -84,11 +85,21 @@ class App:
         self.root.update_idletasks()  # показываем надпись до начала загрузки
 
         rates, ok = get_rates()
-        self.set_rates(rates)
         if ok:
+            self.got_real_rates = True
+            self.set_rates(rates)
             self.label_status.config(text=f"Курсы обновлены в {datetime.now():%H:%M:%S}")
+        elif self.got_real_rates:
+            # настоящие курсы уже были: не заменяем их запасными
+            self.label_status.config(text="Нет связи: остались прошлые курсы")
         else:
+            self.set_rates(rates)
             self.label_status.config(text="Нет связи: запасные курсы (устарели)")
+
+    def auto_refresh(self):
+        """Обновляет курсы и запускает сам себя снова через минуту"""
+        self.refresh_rates()
+        self.root.after(60000, self.auto_refresh)
 
     def on_enter(self, event=None):
         self.tabs[self.notebook.index("current")].on_enter()
