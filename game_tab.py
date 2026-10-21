@@ -5,6 +5,8 @@ from portfolio import Portfolio, TradeError
 from rates import ASSETS, FALLBACK_RATES
 from utils import format_amount, format_rub, parse_amount, parse_start_amount, plain_number
 
+COMMISSION = 0.001  # комиссия за каждую сделку: 0.001 = 0.1% от суммы
+
 
 class GameTab(ttk.Frame):
     """Вкладка симулятора: виртуальный портфель"""
@@ -12,13 +14,14 @@ class GameTab(ttk.Frame):
     def __init__(self, parent, portfolio, save_path):
         super().__init__(parent)
         self.portfolio = portfolio
+        self.portfolio.commission = COMMISSION  # комиссия задаётся здесь, в файл она не влияет
         self.save_path = save_path  # файл, куда сохраняем портфель
         self.rates = {}             # заполняет главное окно через set_rates
         self.value_history = []     # стоимость портфеля после каждого обновления курсов
         self.chart_colors = {"field": "#ffffff", "result": "#107c10", "hint": "gray"}
 
         ttk.Label(self, text="Торговый симулятор", font=("Arial", 14, "bold")).pack(pady=(15, 2))
-        self.label_hint = ttk.Label(self, text="Виртуальные деньги, реальные курсы", font=("Arial", 9))
+        self.label_hint = ttk.Label(self, text=f"Виртуальные деньги, реальные курсы. Комиссия {COMMISSION * 100:g}%", font=("Arial", 9))
         self.label_hint.pack()
 
         self.label_cash = ttk.Label(self, text="", font=("Arial", 12))
@@ -144,7 +147,8 @@ class GameTab(ttk.Frame):
             self.label_cost.config(text="")
             return
         if asset in self.rates:
-            self.label_cost.config(text=f"Это примерно {format_rub(amount * self.rates[asset])}")
+            cost = amount * self.rates[asset]
+            self.label_cost.config(text=f"Это примерно {format_rub(cost)} (комиссия {format_rub(cost * COMMISSION)})")
 
     def trade(self, side):
         """Общая часть покупки и продажи: читаем форму, делаем сделку, сохраняем"""
@@ -209,7 +213,7 @@ class GameTab(ttk.Frame):
         if not messagebox.askyesno("Начать заново", question):
             return
 
-        self.portfolio = Portfolio(cash=amount, commission=self.portfolio.commission)
+        self.portfolio = Portfolio(cash=amount, commission=COMMISSION)
         self.value_history = []  # новая игра: старый график не нужен
         try:
             self.portfolio.save(self.save_path)
