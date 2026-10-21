@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from portfolio import Portfolio, TradeError
-from rates import ASSETS
+from rates import ASSETS, FALLBACK_RATES
 from utils import format_amount, format_rub, parse_amount, parse_start_amount, plain_number
 
 
@@ -14,6 +14,8 @@ class GameTab(ttk.Frame):
         self.portfolio = portfolio
         self.save_path = save_path  # файл, куда сохраняем портфель
         self.rates = {}             # заполняет главное окно через set_rates
+        self.value_history = []     # стоимость портфеля после каждого обновления курсов
+        self.chart_colors = {"field": "#ffffff", "result": "#107c10", "hint": "gray"}
 
         ttk.Label(self, text="Торговый симулятор", font=("Arial", 14, "bold")).pack(pady=(15, 2))
         self.label_hint = ttk.Label(self, text="Виртуальные деньги, реальные курсы", font=("Arial", 9))
@@ -32,7 +34,7 @@ class GameTab(ttk.Frame):
                                      ("rate", "Курс", 130), ("value", "Стоимость", 130)):
             self.table.heading(column, text=title)
             self.table.column(column, width=width, anchor="center")
-        self.table.pack(pady=15, padx=10)
+        self.table.pack(pady=(10, 5), padx=10)
 
         # Торговля: выбираем актив, вводим количество, жмём кнопку
         trade_frame = ttk.Frame(self)
@@ -62,7 +64,7 @@ class GameTab(ttk.Frame):
         history_frame = ttk.Frame(self)
         history_frame.pack(padx=10)
         self.history = ttk.Treeview(history_frame, columns=("time", "side", "asset", "qty", "total"),
-                                    show="headings", height=5)
+                                    show="headings", height=3)
         for column, title, width in (("time", "Время", 120), ("side", "Сделка", 80),
                                      ("asset", "Актив", 60), ("qty", "Количество", 100),
                                      ("total", "Сумма", 110)):
@@ -72,6 +74,11 @@ class GameTab(ttk.Frame):
         self.history.configure(yscrollcommand=scroll.set)
         self.history.pack(side="left")
         scroll.pack(side="left", fill="y")
+
+        # График стоимости портфеля
+        ttk.Label(self, text="Стоимость портфеля", font=("Arial", 10, "bold")).pack(pady=(10, 2))
+        self.chart = tk.Canvas(self, width=440, height=100, highlightthickness=0)
+        self.chart.pack()
 
         # Выбор стартовой суммы и новая игра
         start_frame = ttk.Frame(self)
@@ -87,7 +94,43 @@ class GameTab(ttk.Frame):
     def set_rates(self, rates):
         """Главное окно присылает сюда свежие курсы"""
         self.rates = rates
+        self.add_point()
         self.update_view()
+
+    def add_point(self):
+        """Запоминает текущую стоимость портфеля для графика"""
+        if self.rates == FALLBACK_RATES:  # запасные курсы выдуманные, их на график не берём
+            return
+        self.value_history.append(self.portfolio.value(self.rates))
+        if len(self.value_history) > 60:  # храним только последние 60 точек
+            self.value_history.pop(0)
+
+    def draw_chart(self):
+        """Рисует линию стоимости портфеля"""
+        self.chart.delete("all")
+        self.chart.config(bg=self.chart_colors["field"])
+        if len(self.value_history) < 2:
+            self.chart.create_text(220, 50, text="График появится после нескольких обновлений курсов",
+                                   fill=self.chart_colors["hint"])
+            return
+
+        width, height, margin = 440, 100, 15
+        low = min(self.value_history)
+        high = max(self.value_history)
+        if high == low:  # стоимость не менялась: рисуем ровную линию
+            high = low + 1
+
+        points = []
+        last = len(self.value_history) - 1
+        for i, value in enumerate(self.value_history):
+            x = margin + (width - 2 * margin) * i / last
+            y = height - margin - (height - 2 * margin) * (value - low) / (high - low)
+            points.extend([x, y])
+        self.chart.create_line(*points, fill=self.chart_colors["result"], width=2)
+        self.chart.create_text(5, 8, text=format_rub(max(self.value_history)), anchor="w",
+                               fill=self.chart_colors["hint"], font=("Arial", 8))
+        self.chart.create_text(5, height - 8, text=format_rub(min(self.value_history)), anchor="w",
+                               fill=self.chart_colors["hint"], font=("Arial", 8))
 
     def on_enter(self):
         """Enter на этой вкладке тоже ничего не делает: покупать надо кнопкой"""
@@ -130,6 +173,7 @@ class GameTab(ttk.Frame):
             messagebox.showwarning("Внимание", "Не удалось сохранить портфель в файл.")
         self.entry_trade.delete(0, tk.END)
         self.label_cost.config(text="")
+        self.add_point()
         self.update_view()
 
     def buy(self):
@@ -166,6 +210,7 @@ class GameTab(ttk.Frame):
             return
 
         self.portfolio = Portfolio(cash=amount, commission=self.portfolio.commission)
+        self.value_history = []  # новая игра: старый график не нужен
         try:
             self.portfolio.save(self.save_path)
         except OSError:
@@ -196,6 +241,7 @@ class GameTab(ttk.Frame):
             ))
 
         self.update_history()
+        self.draw_chart()
 
     def update_history(self):
         """Заполняет таблицу сделок: самые новые сверху"""
@@ -212,3 +258,5 @@ class GameTab(ttk.Frame):
     def apply_colors(self, colors):
         """Цвета таблицы задаются стилем Treeview в главном окне, тут красить нечего"""
         self.label_hint.config(foreground=colors["hint"])
+        self.chart_colors = colors
+        self.draw_chart()

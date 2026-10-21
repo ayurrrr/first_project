@@ -39,7 +39,7 @@ class App:
         self.portfolio = load_portfolio()
 
         root.title("Конвертер и торговый симулятор")
-        root.geometry("480x780")
+        root.geometry("480x820")
         root.resizable(False, False)
         self.style = ttk.Style()
         self.style.theme_use("clam")
